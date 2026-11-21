@@ -46,7 +46,9 @@ struct Comparison: View {
     @State private var selected: String?
     @State private var beforePhoto: PhotosPickerItem?
     @State private var afterPhoto: PhotosPickerItem?
-    @State private var busy = false
+    @State private var loadingBefore = false
+    @State private var loadingAfter = false
+    private var busy: Bool { loadingBefore || loadingAfter }
     @State private var status = "Photograph the same area from the same angle."
     @State private var clearing = false
 
@@ -72,7 +74,7 @@ struct Comparison: View {
                     column(before: true)
                     column(before: false)
                 }
-                if pair.after != nil {
+                if pair.before != nil && pair.after != nil {
                     Text("Detected counts").font(.title2)
                     if names.isEmpty { Text("No supported objects detected in either image.") }
                     ForEach(names, id: \.self) { name in
@@ -91,7 +93,7 @@ struct Comparison: View {
                         .accessibilityHint("Highlight matching boxes in both photos")
                     }
                 }
-                if pair.before != nil { Button("Clear saved comparison", role: .destructive) { clearing = true }.disabled(busy) }
+                if pair.before != nil || pair.after != nil { Button("Clear saved comparison", role: .destructive) { clearing = true }.disabled(busy) }
             }.padding(28)
         }.frame(minWidth: 780, minHeight: 540)
         .interactiveDismissDisabled(busy)
@@ -133,6 +135,7 @@ struct Comparison: View {
                     }.frame(maxHeight: 225)
                 Text(capture.date.formatted()).font(.caption)
             }
+            if before ? loadingBefore : loadingAfter { ProgressView("Analysing photo…") }
             PhotosPicker(selection: before ? $beforePhoto : $afterPhoto, matching: .images) {
                 Text(capture == nil ? "Choose photo" : "Choose retaken photo")
             }
@@ -145,24 +148,34 @@ struct Comparison: View {
                 }
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
-        .disabled(busy || (!before && pair.before == nil))
+        .disabled(before ? loadingBefore : loadingAfter)
     }
 
     private func save(_ capture: Capture, before: Bool) throws {
         var next = pair
-        if before { next = Pair(before: capture, after: nil) } else { next.after = capture }
+        if before { next.before = capture } else { next.after = capture }
         try JSONEncoder().encode(next).write(to: Pair.file(), options: .atomic)
         pair = next
         selected = nil
-        status = before ? "Baseline saved. Choose the second photo from the same angle." : "Select a category to inspect both photos."
+        if next.before == nil { status = "After saved. Choose the Before photo." }
+        else if next.after == nil { status = "Before saved. Choose the After photo." }
+        else { status = "Select a category to inspect both photos." }
     }
 
     private func load(_ item: PhotosPickerItem, before: Bool) {
-        guard !busy else { return }
-        busy = true
+        if before {
+            guard !loadingBefore else { return }
+            loadingBefore = true
+        } else {
+            guard !loadingAfter else { return }
+            loadingAfter = true
+        }
         status = "Identifying objects…"
         Task { @MainActor in
-            defer { beforePhoto = nil; afterPhoto = nil; busy = false }
+            defer {
+                if before { beforePhoto = nil; loadingBefore = false }
+                else { afterPhoto = nil; loadingAfter = false }
+            }
             do {
                 guard let bytes = try await item.loadTransferable(type: Data.self),
                       let image = UIImage(data: bytes) else { throw LensError("Could not open the selected photo.") }

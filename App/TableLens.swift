@@ -118,6 +118,7 @@ struct Home: View {
                 Button("Compare before & after") { comparing = true }
                 PhotosPicker("Identify from photo", selection: $photo, matching: .images)
                     .disabled(running || liveFallback)
+                Button("Scan video or photo") { display.pack.endInput(); liveFallback = true }.disabled(running || liveFallback)
                 Button("Live object detection") { startLive() }.disabled(running || liveFallback)
                 Button("Track reference objects") { start("references") }.disabled(running || liveFallback)
                 if running || liveFallback {
@@ -146,6 +147,12 @@ struct Home: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("TableLensSpaceClosed"))) { _ in running = false; display.pack.endInput() }
+        .onReceive(NotificationCenter.default.publisher(for: .init("TableLensUseMedia"))) { note in
+            running = false
+            display.pack.endInput()
+            display.status = (note.object as? String) ?? "Choose a video or photo."
+            liveFallback = true
+        }
         .task(id: photo) {
             guard let photo else { return }
             do {
@@ -162,12 +169,14 @@ struct Home: View {
         display.pack.endInput()
         display.frame = nil
         display.items = []
+        #if LIVE_CAMERA
         if CameraFrameProvider.isSupported {
             start("camera")
-        } else {
-            liveFallback = true
-            display.status = "Headset camera unavailable here. Pick a video or photo for continuous detection."
+            return
         }
+        #endif
+        liveFallback = true
+        display.status = "Choose a video or photo for object detection."
     }
 
     func start(_ id: String) {
@@ -374,6 +383,7 @@ struct ReferenceSpace: View {
 }
 
 struct CameraSpace: View {
+    @Environment(\.dismissImmersiveSpace) private var closeSpace
     @ObservedObject var display: Display
     @State private var session = ARKitSession()
     var body: some View {
@@ -384,13 +394,14 @@ struct CameraSpace: View {
     @MainActor func capture() async {
         do {
             guard CameraFrameProvider.isSupported,
-                  let format = CameraVideoFormat.supportedVideoFormats(for:.main,cameraPositions:[.left]).first else {
-                throw LensError("No supported main-camera format. Use Live object detection fallback with a video, or install a Main Camera Access build.")
-            }
+                  !Task.isCancelled else { throw LensError("Camera provider unavailable.") }
             let provider = CameraFrameProvider()
             let permission = await session.requestAuthorization(for:[.cameraAccess])
             guard permission[.cameraAccess] == .allowed else { throw LensError("Main-camera permission was denied.") }
             try await session.run([provider])
+            guard let format = CameraVideoFormat.supportedVideoFormats(for: .main, cameraPositions: [.left]).first else {
+                throw LensError("No supported main-camera format.")
+            }
             guard let frames = provider.cameraFrameUpdates(for:format) else {
                 throw LensError("Main camera unavailable. Check entitlement and enterprise license.")
             }
@@ -408,6 +419,13 @@ struct CameraSpace: View {
                 let items = try await Detector.shared.analyze(image)
                 if !Task.isCancelled { display.show(image,items,live: true) }
             }
-        } catch { display.status = error.localizedDescription }
+            if !Task.isCancelled { throw LensError("Camera stream ended.") }
+        } catch {
+            guard !Task.isCancelled else { return }
+            let message = error.localizedDescription + " Choose a video or photo."
+            session.stop()
+            await closeSpace()
+            NotificationCenter.default.post(name: .init("TableLensUseMedia"), object: message)
+        }
     }
 }
