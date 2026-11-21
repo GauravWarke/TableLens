@@ -6,7 +6,7 @@ function model(){
   if(!modelPromise) modelPromise=(async()=>{
     if(!globalThis.tf) await script('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
     if(!globalThis.cocoSsd) await script('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
-    await tf.ready(); return cocoSsd.load({base:'lite_mobilenet_v2'});
+    await globalThis.tf.ready(); return globalThis.cocoSsd.load({base:'lite_mobilenet_v2'});
   })().catch(e=>{modelPromise=null;throw e;});
   return modelPromise;
 }
@@ -22,6 +22,7 @@ function render(){
     li.append(name+' · '+(packed?'Packed by you':session.current(name,Date.now())?'Seen in latest scan':'Unconfirmed')+' ');
     b.textContent=packed?'Undo packed':'Mark packed';b.onclick=()=>{session.checklist.set(name,!packed);render();};li.append(b);el('list').append(li);
   }
+  if(!target){el('last').hidden=true;el('found').textContent='';}
   if(target){const s=session.history.get(target);el('last').hidden=!s;
     if(s){const matches=s.items.filter(i=>i.class===target);el('found').textContent=target+' · '+matches.length+' candidate(s) · scanned '+new Date(s.time).toLocaleTimeString();paint(el('last'),s,matches);}
     else el('found').textContent='No reliable sighting of '+target+' this session.';

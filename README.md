@@ -1,12 +1,23 @@
 # TableLens
 
-**Find an everyday item by seeing where it last appeared, then check it off when you pack it.** TableLens is an Apple Vision Pro prototype for people clearing a shared workspace after a class, hackathon or workshop.
+**Find an everyday item by seeing where it last appeared, then check it off when you pack it.** TableLens is a native Apple Vision Pro app and a cross-platform browser prototype for people clearing a shared workspace after a class, hackathon or workshop.
 
 Imagine packing up a laptop and losing sight of the mouse. Search for **mouse** in TableLens to see the latest scan that recognised one, with its location highlighted. The surrounding objects in the image can help you decide where to look. Once you have the mouse in your bag, select **Mark packed**.
 
 [Download the project pitch](Presentation/TableLens-Pitch.pptx)
 
-## Try the core workflow
+## Choose your version
+
+| | Native visionOS | Web browser |
+| --- | --- | --- |
+| Detector | Apple Core ML YOLOv3 | TensorFlow.js COCO-SSD |
+| Input | Photo, video or approved headset camera | Photo, video or a camera exposed by the browser |
+| Comparison | Inspect both images and their detected counts | Compare category counts from two saved scans |
+| Storage | Session sightings in memory; comparison saved locally | Session and comparison in memory |
+
+**Quick browser demo:** From the repository root run `python3 -m http.server 8000 --directory web` (Windows: `py -m http.server 8000 --directory web`). Open `http://localhost:8000`, choose a photo, then search for an object that was detected. On another device use an HTTPS deployment of the web folder. Detector downloads require internet access.
+
+## Try the core workflow on Vision Pro
 
 The quickest demo uses two desk photos and the standard build. Take one photo with a mouse beside a laptop. Take another from the same angle with the mouse hidden.
 
@@ -71,14 +82,26 @@ For the live headset feed, a category must appear in two consecutive processed f
 | [Prepare.command](Prepare.command) | Download and verify the Core ML model |
 | [Install.command](Install.command) | Build, sign and install the standard or live configuration |
 
-## License
-
-The repository includes [CC0 1.0 Universal](LICENSE). The pretrained detector is distributed separately by Apple. See the [model card and terms](https://huggingface.co/apple/coreml-YOLOv3).
 
 ## Other headsets, phones and computers
 
 Open the cross-platform browser client from `web/`. It runs the COCO-SSD MobileNet detector using TensorFlow.js on the device. Apple Core ML YOLOv3 remains the native visionOS detector. Expect differences between their predictions. The web interface supports identification, last-seen images, a manual pack-up list and before/after count comparison. All browser session data is in memory and clears on reload.
 
-From the repository root, run `python -m http.server 8000 --directory web` and visit http://localhost:8000 on the same computer. For a headset or phone, host the contents of web/ on an HTTPS static site and open that address in its browser. The initial scan needs network access for the pinned JS libraries and pretrained weights. Choose a photo/video first. Start camera requests an ordinary browser camera track; availability depends on the browser, permissions and headset. A headset may show this as a floating 2D page without granting passthrough camera frames. There is no native Android XR/Quest package or world-anchored overlay in the browser edition.
+Headset browsers may display the app as a floating 2D page. Access to a passthrough camera depends on the device and its browser. A native Android XR or Quest package is outside this release.
 
-Run `node web/test.mjs` for session logic checks. Physical headset compatibility and detection accuracy need testing on each intended model.
+## Verification
+
+Run these from the repository root with Node.js 20+ and Bash:
+
+```bash
+node web/test.mjs
+npx --yes eslint@9.39.5 web/*.mjs --max-warnings=0
+node --check web/app.mjs && node --check web/session.mjs
+bash -n Install.command && bash -n Prepare.command
+```
+
+These checks exercise session rules and parse the sources. To test recognition, load the same desk photo in both clients, check the labels, then scan a second view with an item obscured. Record false detections and inspect its last sighting. Native compilation, headset camera access and live performance must be verified on the target device.
+
+## Licensing and models
+
+See the [repository license](LICENSE), [Apple model card](https://huggingface.co/apple/coreml-YOLOv3) and [TensorFlow.js COCO-SSD project](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd) for the respective terms and model information.
