@@ -90,7 +90,7 @@ struct Inventory: View {
 @main
 struct TableLensApp: App {
     @StateObject var display = Display()
-    var body: some Scene {
+    var body: some SwiftUI.Scene {
         WindowGroup { Home(display: display) }
         ImmersiveSpace(id: "references") { ReferenceSpace(display: display) }
         #if LIVE_CAMERA
