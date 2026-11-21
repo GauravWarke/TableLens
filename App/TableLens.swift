@@ -6,6 +6,8 @@ import CoreML
 import PhotosUI
 import UIKit
 import CoreImage
+import AVFoundation
+import UniformTypeIdentifiers
 
 struct Detection: Codable {
     let name: String
@@ -93,9 +95,7 @@ struct TableLensApp: App {
     var body: some SwiftUI.Scene {
         WindowGroup { Home(display: display) }
         ImmersiveSpace(id: "references") { ReferenceSpace(display: display) }
-        #if LIVE_CAMERA
         ImmersiveSpace(id: "camera") { CameraSpace(display: display) }
-        #endif
     }
 }
 
@@ -106,24 +106,35 @@ struct Home: View {
     @State private var photo: PhotosPickerItem?
     @State private var running = false
     @State private var comparing = false
+    @State private var liveFallback = false
     var body: some View {
         VStack(spacing: 16) {
             Text("TableLens").font(.largeTitle)
             HStack {
                 Button("Compare before & after") { comparing = true }
                 PhotosPicker("Identify from photo", selection: $photo, matching: .images)
-                    .disabled(running)
-                Button("Track reference objects") { start("references") }.disabled(running)
-                #if LIVE_CAMERA
-                Button("Scan through headset") { start("camera") }.disabled(running)
-                #endif
-                if running {
-                    Button("Stop") { Task { await dismiss(); running = false; display.status = "Stopped." } }
+                    .disabled(running || liveFallback)
+                Button("Live object detection") { startLive() }.disabled(running || liveFallback)
+                Button("Track reference objects") { start("references") }.disabled(running || liveFallback)
+                if running || liveFallback {
+                    Button("Stop") {
+                        Task {
+                            if running { await dismiss(); running = false }
+                            liveFallback = false
+                            display.status = "Stopped."
+                        }
+                    }
                 }
             }
             Inventory(display: display)
         }.padding(32)
         .sheet(isPresented: $comparing) { Comparison(display: display) }
+        .sheet(isPresented: $liveFallback) {
+            LiveFallbackScan(display: display) {
+                liveFallback = false
+                display.status = "Stopped."
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .init("TableLensSpaceClosed"))) { _ in running = false }
         .task(id: photo) {
             guard let photo else { return }
@@ -132,10 +143,22 @@ struct Home: View {
                       let ui = UIImage(data: data) else { throw LensError("Could not decode photo.") }
                 let cg = try inspectionImage(ui)
                 let items = try await Detector.shared.analyze(cg)
-                if !Task.isCancelled && !running { display.show(cg,items) }
+                if !Task.isCancelled && !running && !liveFallback { display.show(cg,items) }
             } catch { if !Task.isCancelled { display.status = error.localizedDescription } }
         }
     }
+
+    func startLive() {
+        display.frame = nil
+        display.items = []
+        if CameraFrameProvider.isSupported {
+            start("camera")
+        } else {
+            liveFallback = true
+            display.status = "Headset camera unavailable here. Pick a video or photo for continuous detection."
+        }
+    }
+
     func start(_ id: String) {
         running = true
         display.frame = nil; display.items = []; display.status = "Opening…"
@@ -144,6 +167,142 @@ struct Home: View {
             case .opened: break
             default: running = false; display.status = "Space did not open."
             }
+        }
+    }
+}
+
+/// Continuous YOLO on a user-chosen video/photo when main-camera access is unavailable (Simulator / no entitlement).
+struct LiveFallbackScan: View {
+    @ObservedObject var display: Display
+    var onStop: () -> Void
+    @State private var media: PhotosPickerItem?
+    @State private var task: Task<Void, Never>?
+    @State private var looping = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Live object detection").font(.largeTitle)
+                Spacer()
+                Button("Done") { stop(); onStop() }
+            }
+            Text(display.status)
+            PhotosPicker(
+                "Choose video or photo",
+                selection: $media,
+                matching: .any(of: [.videos, .images])
+            )
+            .disabled(task != nil && !looping)
+            if task != nil {
+                Button(looping ? "Pause loop" : "Resume loop") {
+                    looping.toggle()
+                }
+            }
+            Inventory(display: display)
+            Text("On Vision Pro with Main Camera Access, use Live object detection for the real headset feed. This fallback streams frames from a video or repeats a still photo.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(32)
+        .onChange(of: media) { _, item in
+            guard let item else { return }
+            start(item)
+        }
+        .onDisappear { stop() }
+    }
+
+    func stop() {
+        task?.cancel()
+        task = nil
+        looping = false
+    }
+
+    func start(_ item: PhotosPickerItem) {
+        stop()
+        looping = true
+        display.status = "Loading media…"
+        task = Task {
+            do {
+                if let movie = try await item.loadTransferable(type: VideoFile.self) {
+                    try await streamVideo(movie.url)
+                } else if let data = try await item.loadTransferable(type: Data.self),
+                          let ui = UIImage(data: data) {
+                    let cg = try inspectionImage(ui)
+                    try await streamStill(cg)
+                } else {
+                    throw LensError("Could not read that media.")
+                }
+            } catch is CancellationError {
+                // stopped
+            } catch {
+                if !Task.isCancelled { display.status = error.localizedDescription }
+            }
+        }
+    }
+
+    @MainActor
+    func streamStill(_ image: CGImage) async throws {
+        display.status = "Live loop on still frame. Pause or Done to stop."
+        while !Task.isCancelled {
+            if looping {
+                let items = try await Detector.shared.analyze(image)
+                if !Task.isCancelled { display.show(image, items) }
+            }
+            try await Task.sleep(nanoseconds: 500_000_000)
+        }
+    }
+
+    @MainActor
+    func streamVideo(_ url: URL) async throws {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 960, height: 960)
+        let duration = try await asset.load(.duration)
+        let step = CMTime(seconds: 0.5, preferredTimescale: 600)
+        display.status = "Live detection from video…"
+        while !Task.isCancelled {
+            var time = CMTime.zero
+            while !Task.isCancelled, time <= duration {
+                if looping {
+                    let cg = try await image(at: time, generator: generator)
+                    let items = try await Detector.shared.analyze(cg)
+                    if !Task.isCancelled { display.show(cg, items) }
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } else {
+                    try await Task.sleep(nanoseconds: 200_000_000)
+                    continue
+                }
+                time = CMTimeAdd(time, step)
+            }
+        }
+    }
+
+    func image(at time: CMTime, generator: AVAssetImageGenerator) async throws -> CGImage {
+        try await withCheckedThrowingContinuation { continuation in
+            generator.generateCGImageAsynchronously(for: time) { cgImage, _, error in
+                if let cgImage {
+                    continuation.resume(returning: cgImage)
+                } else {
+                    continuation.resume(throwing: error ?? LensError("Could not read a video frame."))
+                }
+            }
+        }
+    }
+}
+
+struct VideoFile: Transferable {
+    let url: URL
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent("tablelens-live-\(UUID().uuidString)")
+                .appendingPathExtension(received.file.pathExtension)
+            try? FileManager.default.removeItem(at: dest)
+            try FileManager.default.copyItem(at: received.file, to: dest)
+            return VideoFile(url: dest)
         }
     }
 }
@@ -160,7 +319,9 @@ struct ReferenceSpace: View {
     @MainActor func track() async {
         do {
             let urls = Bundle.main.urls(forResourcesWithExtension:"referenceobject",subdirectory:nil) ?? []
-            guard !urls.isEmpty else { throw LensError("Add trained .referenceobject files to Resources on the Mac, then rebuild. Choose Stop to exit.") }
+            guard !urls.isEmpty else {
+                throw LensError("Reference tracking needs trained .referenceobject files in Resources. For everyday items, choose Stop, then Live object detection.")
+            }
             guard ObjectTrackingProvider.isSupported else { throw LensError("Object tracking requires a supported headset.") }
             var references: [ReferenceObject] = []
             for url in urls { references.append(try await ReferenceObject(from:url)) }
@@ -192,7 +353,6 @@ struct ReferenceSpace: View {
     }
 }
 
-#if LIVE_CAMERA
 struct CameraSpace: View {
     @ObservedObject var display: Display
     @State private var session = ARKitSession()
@@ -205,16 +365,18 @@ struct CameraSpace: View {
         do {
             guard CameraFrameProvider.isSupported,
                   let format = CameraVideoFormat.supportedVideoFormats(for:.main,cameraPositions:[.left]).first else {
-                throw LensError("No supported main-camera format on this device.")
+                throw LensError("No supported main-camera format. Use Live object detection fallback with a video, or install a Main Camera Access build.")
             }
             let provider = CameraFrameProvider()
             let permission = await session.requestAuthorization(for:[.cameraAccess])
             guard permission[.cameraAccess] == .allowed else { throw LensError("Main-camera permission was denied.") }
             try await session.run([provider])
-            guard let frames = provider.cameraFrameUpdates(for:format) else { throw LensError("Main camera unavailable. Check entitlement and license.") }
+            guard let frames = provider.cameraFrameUpdates(for:format) else {
+                throw LensError("Main camera unavailable. Check entitlement and enterprise license.")
+            }
             let context = CIContext()
             var previous = Date.distantPast
-            display.status = "Look at the table. Scanning…"
+            display.status = "Live detection. Look at the table…"
             for await frame in frames {
                 if Task.isCancelled { break }
                 guard Date().timeIntervalSince(previous) >= 0.5, let sample = frame.sample(for:.left) else { continue }
@@ -229,4 +391,3 @@ struct CameraSpace: View {
         } catch { display.status = error.localizedDescription }
     }
 }
-#endif

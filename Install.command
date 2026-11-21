@@ -11,7 +11,8 @@ extra=()
 if [[ "$mode" == live ]]; then
     read -r -p "Apple-approved bundle ID for Main Camera Access: " bundle
     [[ -n "$bundle" && "$bundle" != *" "* ]] || exit 2
-    extra+=("SWIFT_ACTIVE_COMPILATION_CONDITIONS=LIVE_CAMERA" "CODE_SIGN_ENTITLEMENTS=Camera.entitlements")
+    # Live UI is always compiled; this mode only attaches the Main Camera Access entitlement.
+    extra+=("CODE_SIGN_ENTITLEMENTS=Camera.entitlements")
 fi
 xcrun devicectl list devices
 read -r -p "Paired Vision Pro identifier: " device
