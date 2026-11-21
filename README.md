@@ -74,3 +74,11 @@ For the live headset feed, a category must appear in two consecutive processed f
 ## License
 
 The repository includes [CC0 1.0 Universal](LICENSE). The pretrained detector is distributed separately by Apple. See the [model card and terms](https://huggingface.co/apple/coreml-YOLOv3).
+
+## Other headsets, phones and computers
+
+Open the cross-platform browser client from `web/`. It runs the COCO-SSD MobileNet detector using TensorFlow.js on the device. Apple Core ML YOLOv3 remains the native visionOS detector. Expect differences between their predictions. The web interface supports identification, last-seen images, a manual pack-up list and before/after count comparison. All browser session data is in memory and clears on reload.
+
+From the repository root, run `python -m http.server 8000 --directory web` and visit http://localhost:8000 on the same computer. For a headset or phone, host the contents of web/ on an HTTPS static site and open that address in its browser. The initial scan needs network access for the pinned JS libraries and pretrained weights. Choose a photo/video first. Start camera requests an ordinary browser camera track; availability depends on the browser, permissions and headset. A headset may show this as a floating 2D page without granting passthrough camera frames. There is no native Android XR/Quest package or world-anchored overlay in the browser edition.
+
+Run `node web/test.mjs` for session logic checks. Physical headset compatibility and detection accuracy need testing on each intended model.
