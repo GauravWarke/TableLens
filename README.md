@@ -1,35 +1,76 @@
-# Open the included Xcode project
+# TableLens
 
-Unzip the entire folder. On an Apple-silicon Mac with Xcode 16 or newer and a visionOS SDK, run `bash Prepare.command` to fetch and verify the detector. Open `TableLens.xcodeproj`, select the TableLens scheme, choose your signing team and device, then press Run. The five-slide PowerPoint and timed presenter notes are in Presentation/TableLens-Pitch.pptx, also visible in the project navigator.
+**Find an everyday item by seeing where it last appeared, then check it off when you pack it.** TableLens is an Apple Vision Pro prototype for people clearing a shared workspace after a class, hackathon or workshop.
 
-# TableLens for Apple Vision Pro
-Send this ZIP to your Mac developer. The native app analyses images on the headset using Apple Vision and a bundled Core ML object detector. It requires no robot, webcam, Python service or network connection after installation. The model recognises a fixed vocabulary of common objects; it does not identify every item or brand.
+Imagine packing up a laptop and losing sight of the mouse. Search for **mouse** in TableLens to see the latest scan that recognised one, with its location highlighted. The surrounding objects in the image can help you decide where to look. Once you have the mouse in your bag, select **Mark packed**.
 
-## Pick a build
-- Live everyday-object scan: Apple’s restricted main-camera path. Obtain Apple's Main Camera Access entitlement for your team and app ID, and the enterprise license required for your provisioning arrangement. Place Apple's supplied license in Resources/ under its supplied filename before building. Follow Apple's instructions if your approval specifies different packaging. Open the mixed immersive space with “Scan through headset” and grant camera permission. The app periodically processes a left-camera frame and displays the captured view, names, counts and image-space boxes in its window. Those boxes are labels on the captured image; they do not remain attached to the physical objects.
-- Standard AR: supply one or more trained .referenceobject files in Resources/ before building. Train them in Create ML using Apple's reference-object workflow, using a 3D model of each specific item. Name the references meaningfully. Select “Track reference objects” and allow world sensing. ARKit uses system sensing to identify enrolled objects; the app places a spatial name tag at each tracked anchor. There are no reference objects supplied because they must match your physical items.
-- Standard photo scan: take a system photo on Vision Pro or import a table photo into Photos. Select “Identify from photo.” This runs the general detector on-device and is the quickest installation check without special camera access.
+[Download the project pitch](Presentation/TableLens-Pitch.pptx)
 
-## Mac installation
-1. Use an Apple-silicon Mac with full Xcode, a visionOS SDK supporting visionOS 2 or later, your signed-in Apple development account and Xcode 16 or newer. Pair the physical headset in Xcode, enable Developer Mode, and ensure it runs visionOS 2 or later.
-2. Unzip and open Terminal inside TableLens/. For standard photo/reference modes, run `bash Install.command standard`. For the approved live-camera mode, run `bash Install.command live`. Provide your team ID and paired device identifier when prompted. Live mode additionally prompts for the entitled bundle identifier.
-3. The script downloads Apple’s pretrained YOLOv3 Core ML model (roughly 62 MB), verifies its pinned SHA-256, uses the included Xcode project, and asks Xcode to build, sign, install and launch. No credentials or license are included. If provisioning fails, inspect Signing & Capabilities for the approved team/app ID and register the headset through Xcode.
-4. For simulator photo testing run `bash Prepare.command`, open TableLens.xcodeproj, select a visionOS simulator and run. Physical sensing and signing require the device test.
+## Try the core workflow
 
-## First acceptance test
-Use a cup, book and phone under good lighting. Try a still photo first, record how many real objects the model finds, and check label and box placement. In the live build move an object, look away and return. Verify that results update, correct image orientation on your hardware, Stop releases the session, and re-entry works. In reference mode test one trained item and one untrained look-alike. This package was checked structurally on Linux. Xcode compilation, optical alignment, effective scan rate and headset installation are pending.
+The quickest demo uses two desk photos and the standard build. Take one photo with a mouse beside a laptop. Take another from the same angle with the mouse hidden.
 
-Apple's main-camera sample: https://developer.apple.com/documentation/visionos/accessing-the-main-camera
-Enterprise capabilities: https://developer.apple.com/documentation/visionos/building-spatial-experiences-for-business-apps-with-enterprise-apis
-Reference tracking: https://developer.apple.com/documentation/visionos/exploring-object-tracking-with-arkit
-Model and terms: https://huggingface.co/apple/coreml-YOLOv3
+1. Choose **Identify from photo** and scan the first image. Check that the detector labels the mouse.
+2. Scan the second image. Open **Find & pack up** and search for **mouse**. If the second scan missed the mouse, its earlier highlighted sighting remains available.
+3. Select **Mark packed** after recovering it. You can undo this action. If two mice or phones appear, inspect the highlighted candidates to identify yours.
+4. Open **Compare before & after** to compare the same two images. Select either photo first, then tap a category to highlight its detections in both views.
 
-## Compare a tabletop before and after
-Open **Compare before & after**. Choose the baseline photo, then a second photo taken from the same height and angle. Both use Apple's pinned YOLOv3Int8LUT Core ML detector and the same 0.45 label threshold. Select a category to isolate its boxes in both images. Choose a retaken after photo to rerun the comparison while keeping the baseline. Either photo may be selected first. Replacing one photo preserves the other. Use current scan freezes the most recent displayed frame and its corresponding detections. The most recent pair is saved locally until replaced or cleared. A missing detection may reflect occlusion, framing, or model error.
+| Feature | What it tells you |
+| --- | --- |
+| Identify objects | Names and boxes for supported object categories visible in a photo or frame. |
+| Find my item | The most recent qualifying sighting of a category during this session, including the image and scan time. |
+| Pack-up checklist | Whether a category was seen in the latest scan, remains unconfirmed, or was marked packed by the wearer. |
+| Before and after | How detected counts differ between two views. A lower count can mean an object was covered or outside the frame. |
 
-For a device check, photograph two cups, a phone and a book, remove one cup, and capture the second photo. Verify the count change if the detector finds all items. Repeat using the identical photo twice (all deltas zero), then close and reopen the comparison to check persistence. Test replacing the after photo and clearing both images.
+## Run on a Mac
 
-## Identify → Find → Pack up
-Use Identify from photo (standard build) or Scan through headset (entitled live build). Every successful scan also feeds Find & pack up. Choose an item or search its category, e.g. phone. The latest reliable sighting shows the full scene, highlighted candidates and scan time. Successive photos simulate changing views. Live sightings require the category in two consecutive processed frames within three seconds. An old or interrupted feed expires. This is category-level evidence; multiple matches remain separate highlighted candidates. Packed is a reversible manual status. A checklist entry may also be used for a manual-only item outside the detector vocabulary.
+Use an Apple-silicon Mac with Xcode 16 or later, the visionOS SDK, and a visionOS 2 or later simulator or headset. The first setup needs internet access to download the detector.
 
-Start with phone, mouse and book or use Start empty session and add your own items. Sightings and checklist stay in memory for this run and are cleared on restart. Earlier before/after comparison snapshots have their own separate local storage. Test an absent item, an occluded mouse, two phones, manual pack/undo, a stopped feed, and a session reset. A photo's scan time is when it was analysed, not when it was taken.
+```bash
+git clone https://github.com/GauravWarke/TableLens.git
+cd TableLens
+bash Prepare.command
+open TableLens.xcodeproj
+```
+
+Choose the **TableLens** scheme and a visionOS simulator, then press **Run**. Import a desk photo into the simulator’s Photos library to try the walkthrough. The checked-in Xcode project opens directly.
+
+**Install on a headset.** Pair the headset with Xcode, enable Developer Mode, and sign in to your development team. Run the following from the repository root. The script prompts for your team ID and the paired headset identifier, then builds, signs, installs and launches the app.
+
+```bash
+bash Install.command standard
+```
+
+## Choose an input
+
+| Input | Setup |
+| --- | --- |
+| Photo or recorded video | In the standard build, choose **Identify from photo** or **Scan video or photo**. A video lets you try changing scenes without main-camera access. |
+| Live headset camera | Requires Apple-approved Main Camera Access for the team and bundle ID, the applicable license and user permission. Follow Apple’s license packaging instructions, then run `bash Install.command live` and enter the approved bundle ID. If camera capture is unavailable, use the media picker. |
+| Trained reference object | For a spatial label attached to a specific physical item, add its trained `.referenceobject` file to `Resources/`, rebuild, and choose **Track reference objects**. Everyday photo recognition uses the bundled detector instead. |
+
+[Apple main-camera setup](https://developer.apple.com/documentation/visionos/accessing-the-main-camera) · [ARKit reference-object tracking](https://developer.apple.com/documentation/visionos/exploring-object-tracking-with-arkit)
+
+## How it works
+
+SwiftUI presents the scans and checklist. Apple Vision runs **Apple’s Core ML YOLOv3** detector on-device. The setup script downloads a pinned model revision and verifies its SHA-256 checksum. The app keeps predictions with a top label score of at least 0.45 and excludes the dining-table category so the surface itself doesn’t clutter the inventory.
+
+For the live headset feed, a category must appear in two consecutive processed frames within three seconds to update its sighting. If a subsequent scan loses it, the saved image remains useful. Only an explicit user action marks an item packed. The timestamp records when TableLens analysed the image.
+
+**Data lifetime:** The checklist and last sightings are held in memory for the current app run. The most recent before-and-after pair is saved locally and can be cleared in the comparison screen.
+
+**Scope:** Recognition is category-based. Similar objects may share a label, and small or hidden objects may go undetected. Photo boxes show positions in the captured image. The prototype’s speed, accuracy and effect on search time still need measurement on a physical headset.
+
+## Code guide
+
+| File | Responsibility |
+| --- | --- |
+| [TableLens.swift](App/TableLens.swift) | App entry point, detector, photo/video input, live camera and AR reference tracking |
+| [PackUp.swift](App/PackUp.swift) | Last sightings, category search and manual packing checklist |
+| [Comparison.swift](App/Comparison.swift) | Side-by-side photos, category counts and local comparison storage |
+| [Prepare.command](Prepare.command) | Download and verify the Core ML model |
+| [Install.command](Install.command) | Build, sign and install the standard or live configuration |
+
+## License
+
+The repository includes [CC0 1.0 Universal](LICENSE). The pretrained detector is distributed separately by Apple. See the [model card and terms](https://huggingface.co/apple/coreml-YOLOv3).
