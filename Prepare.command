@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-command -v xcodegen >/dev/null || { echo "Install XcodeGen with brew install xcodegen"; exit 1; }
 xcrun --sdk xros --show-sdk-version
 mkdir -p Resources Generated
 model=Resources/TableObjects.mlmodel
@@ -14,4 +13,3 @@ if ! verify "$model"; then
     verify "$tmp" || { echo "Detector checksum mismatch"; exit 1; }
     mv "$tmp" "$model"
 fi
-xcodegen generate

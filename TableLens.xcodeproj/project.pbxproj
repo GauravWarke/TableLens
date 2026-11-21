@@ -1,0 +1,150 @@
+// !$*UTF8*$!
+{
+"archiveVersion" = 1;
+"classes" = {
+};
+"objectVersion" = 77;
+"objects" = {
+"CDDB344762598D5A44797D08" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Debug";
+"buildSettings" = {
+"SDKROOT" = "xros";
+"XROS_DEPLOYMENT_TARGET" = "2.0";
+"CLANG_ENABLE_MODULES" = "YES";
+"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+};
+};
+"AADF0CCB8AE0B2D9AFD8AF1B" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Release";
+"buildSettings" = {
+"SDKROOT" = "xros";
+"XROS_DEPLOYMENT_TARGET" = "2.0";
+"CLANG_ENABLE_MODULES" = "YES";
+};
+};
+"61E0CE1C7B6B24DD71A0CF29" = {
+"isa" = "XCConfigurationList";
+"buildConfigurations" = ("CDDB344762598D5A44797D08","AADF0CCB8AE0B2D9AFD8AF1B");
+"defaultConfigurationIsVisible" = 0;
+"defaultConfigurationName" = "Release";
+};
+"9FA21EC8AF2CFDB91E047877" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Debug";
+"buildSettings" = {
+"PRODUCT_NAME" = "TableLens";
+"PRODUCT_BUNDLE_IDENTIFIER" = "app.tablelens.prototype";
+"SWIFT_VERSION" = "5.0";
+"TARGETED_DEVICE_FAMILY" = "7";
+"SUPPORTED_PLATFORMS" = "xros xrsimulator";
+"INFOPLIST_FILE" = "Generated/Info.plist";
+"CODE_SIGN_STYLE" = "Automatic";
+"CURRENT_PROJECT_VERSION" = "1";
+"MARKETING_VERSION" = "1.0";
+"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+};
+};
+"AA725B326BC1F7AE6F67C639" = {
+"isa" = "XCBuildConfiguration";
+"name" = "Release";
+"buildSettings" = {
+"PRODUCT_NAME" = "TableLens";
+"PRODUCT_BUNDLE_IDENTIFIER" = "app.tablelens.prototype";
+"SWIFT_VERSION" = "5.0";
+"TARGETED_DEVICE_FAMILY" = "7";
+"SUPPORTED_PLATFORMS" = "xros xrsimulator";
+"INFOPLIST_FILE" = "Generated/Info.plist";
+"CODE_SIGN_STYLE" = "Automatic";
+"CURRENT_PROJECT_VERSION" = "1";
+"MARKETING_VERSION" = "1.0";
+};
+};
+"4EDE84862A19AA41260F80FB" = {
+"isa" = "XCConfigurationList";
+"buildConfigurations" = ("9FA21EC8AF2CFDB91E047877","AA725B326BC1F7AE6F67C639");
+"defaultConfigurationIsVisible" = 0;
+"defaultConfigurationName" = "Release";
+};
+"0D04BFEB7D64B71C74FC925C" = {
+"isa" = "PBXFileSystemSynchronizedRootGroup";
+"path" = "App";
+"sourceTree" = "<group>";
+};
+"E89B30AA1DC30A6AD8C34610" = {
+"isa" = "PBXFileSystemSynchronizedRootGroup";
+"path" = "Resources";
+"sourceTree" = "<group>";
+};
+"D830325906C3D540AE219E6A" = {
+"isa" = "PBXFileReference";
+"lastKnownFileType" = "file";
+"path" = "Presentation/TableLens-Pitch.pptx";
+"sourceTree" = "<group>";
+};
+"6754AF9632A2745E85C293E5" = {
+"isa" = "PBXFileReference";
+"explicitFileType" = "wrapper.application";
+"path" = "TableLens.app";
+"sourceTree" = "BUILT_PRODUCTS_DIR";
+};
+"0A3E27B8CA818264D75C8D81" = {
+"isa" = "PBXGroup";
+"children" = ("6754AF9632A2745E85C293E5");
+"name" = "Products";
+"sourceTree" = "<group>";
+};
+"4813494D137E1631BBA301D5" = {
+"isa" = "PBXGroup";
+"children" = ("0D04BFEB7D64B71C74FC925C","E89B30AA1DC30A6AD8C34610","D830325906C3D540AE219E6A","0A3E27B8CA818264D75C8D81");
+"sourceTree" = "<group>";
+};
+"FC51F675CFA04504BC9B299A" = {
+"isa" = "PBXSourcesBuildPhase";
+"buildActionMask" = 2147483647;
+"files" = ();
+"runOnlyForDeploymentPostprocessing" = 0;
+};
+"5C52B4B026E2D3577270DA12" = {
+"isa" = "PBXFrameworksBuildPhase";
+"buildActionMask" = 2147483647;
+"files" = ();
+"runOnlyForDeploymentPostprocessing" = 0;
+};
+"A08C54AF8A42B43E05313183" = {
+"isa" = "PBXResourcesBuildPhase";
+"buildActionMask" = 2147483647;
+"files" = ();
+"runOnlyForDeploymentPostprocessing" = 0;
+};
+"A172CEDCAE47474B615C54D5" = {
+"isa" = "PBXNativeTarget";
+"buildConfigurationList" = "4EDE84862A19AA41260F80FB";
+"buildPhases" = ("FC51F675CFA04504BC9B299A","5C52B4B026E2D3577270DA12","A08C54AF8A42B43E05313183");
+"buildRules" = ();
+"dependencies" = ();
+"fileSystemSynchronizedGroups" = ("0D04BFEB7D64B71C74FC925C","E89B30AA1DC30A6AD8C34610");
+"name" = "TableLens";
+"productName" = "TableLens";
+"productReference" = "6754AF9632A2745E85C293E5";
+"productType" = "com.apple.product-type.application";
+};
+"244210E48437B6556980A702" = {
+"isa" = "PBXProject";
+"attributes" = {
+"LastUpgradeCheck" = "1600";
+};
+"buildConfigurationList" = "61E0CE1C7B6B24DD71A0CF29";
+"developmentRegion" = "en";
+"knownRegions" = ("en","Base");
+"mainGroup" = "4813494D137E1631BBA301D5";
+"productRefGroup" = "0A3E27B8CA818264D75C8D81";
+"projectDirPath" = "";
+"projectRoot" = "";
+"targets" = ("A172CEDCAE47474B615C54D5");
+"preferredProjectObjectVersion" = 77;
+};
+};
+"rootObject" = "244210E48437B6556980A702";
+}

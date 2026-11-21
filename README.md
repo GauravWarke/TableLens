@@ -1,3 +1,7 @@
+# Open the included Xcode project
+
+Unzip the entire folder. On an Apple-silicon Mac with Xcode 16 or newer and a visionOS SDK, run `bash Prepare.command` to fetch and verify the detector. Open `TableLens.xcodeproj`, select the TableLens scheme, choose your signing team and device, then press Run. The five-slide PowerPoint and timed presenter notes are in Presentation/TableLens-Pitch.pptx, also visible in the project navigator.
+
 # TableLens for Apple Vision Pro
 Send this ZIP to your Mac developer. The native app analyses images on the headset using Apple Vision and a bundled Core ML object detector. It requires no robot, webcam, Python service or network connection after installation. The model recognises a fixed vocabulary of common objects; it does not identify every item or brand.
 
@@ -7,9 +11,9 @@ Send this ZIP to your Mac developer. The native app analyses images on the heads
 - Standard photo scan: take a system photo on Vision Pro or import a table photo into Photos. Select “Identify from photo.” This runs the general detector on-device and is the quickest installation check without special camera access.
 
 ## Mac installation
-1. Use an Apple-silicon Mac with full Xcode, a visionOS SDK supporting visionOS 2 or later, your signed-in Apple development account and XcodeGen (`brew install xcodegen`). Pair the physical headset in Xcode, enable Developer Mode, and ensure it runs visionOS 2 or later.
+1. Use an Apple-silicon Mac with full Xcode, a visionOS SDK supporting visionOS 2 or later, your signed-in Apple development account and Xcode 16 or newer. Pair the physical headset in Xcode, enable Developer Mode, and ensure it runs visionOS 2 or later.
 2. Unzip and open Terminal inside TableLens/. For standard photo/reference modes, run `bash Install.command standard`. For the approved live-camera mode, run `bash Install.command live`. Provide your team ID and paired device identifier when prompted. Live mode additionally prompts for the entitled bundle identifier.
-3. The script downloads Apple’s pretrained YOLOv3 Core ML model (roughly 62 MB), verifies its pinned SHA-256, generates the Xcode project, and asks Xcode to build, sign, install and launch. No credentials or license are included. If provisioning fails, inspect Signing & Capabilities for the approved team/app ID and register the headset through Xcode.
+3. The script downloads Apple’s pretrained YOLOv3 Core ML model (roughly 62 MB), verifies its pinned SHA-256, uses the included Xcode project, and asks Xcode to build, sign, install and launch. No credentials or license are included. If provisioning fails, inspect Signing & Capabilities for the approved team/app ID and register the headset through Xcode.
 4. For simulator photo testing run `bash Prepare.command`, open TableLens.xcodeproj, select a visionOS simulator and run. Physical sensing and signing require the device test.
 
 ## First acceptance test
