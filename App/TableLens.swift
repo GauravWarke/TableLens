@@ -138,7 +138,7 @@ struct Home: View {
             else { Inventory(display: display) }
         }.padding(32)
         .sheet(isPresented: $comparing) { Comparison(display: display) }
-        .sheet(isPresented: $liveFallback) {
+        .sheet(isPresented: $liveFallback, onDismiss: { display.pack.endInput() }) {
             LiveFallbackScan(display: display) {
                 liveFallback = false
                 display.pack.endInput()
@@ -190,6 +190,7 @@ struct LiveFallbackScan: View {
     @State private var media: PhotosPickerItem?
     @State private var task: Task<Void, Never>?
     @State private var looping = false
+    @State private var packing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -210,7 +211,12 @@ struct LiveFallbackScan: View {
                     looping.toggle()
                 }
             }
-            Inventory(display: display)
+            Picker("Workflow", selection: $packing) {
+                Text("Identify objects").tag(false)
+                Text("Find & pack up").tag(true)
+            }.pickerStyle(.segmented)
+            if packing { PackPanel(session: display.pack) }
+            else { Inventory(display: display) }
             Text("On Vision Pro with Main Camera Access, use Live object detection for the real headset feed. This fallback streams frames from a video or repeats a still photo.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -227,6 +233,7 @@ struct LiveFallbackScan: View {
         task?.cancel()
         task = nil
         looping = false
+        display.pack.endInput()
     }
 
     func start(_ item: PhotosPickerItem) {
@@ -271,11 +278,12 @@ struct LiveFallbackScan: View {
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 960, height: 960)
         let duration = try await asset.load(.duration)
+        guard duration.seconds.isFinite, duration.seconds > 0 else { throw LensError("Video has no playable duration.") }
         let step = CMTime(seconds: 0.5, preferredTimescale: 600)
         display.status = "Live detection from video…"
         while !Task.isCancelled {
             var time = CMTime.zero
-            while !Task.isCancelled, time <= duration {
+            while !Task.isCancelled, time < duration {
                 if looping {
                     let cg = try await image(at: time, generator: generator)
                     let items = try await Detector.shared.analyze(cg)
