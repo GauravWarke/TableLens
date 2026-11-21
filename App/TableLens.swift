@@ -49,11 +49,14 @@ struct LensError: LocalizedError {
 
 @MainActor
 final class Display: ObservableObject {
+    let pack = PackSession()
     @Published var frame: UIImage?
     @Published var items: [Detection] = []
     @Published var status = "Choose a scan mode."
-    func show(_ image: CGImage, _ results: [Detection]) {
-        frame = UIImage(cgImage: image)
+    func show(_ image: CGImage, _ results: [Detection], live: Bool = false) {
+        let photo = UIImage(cgImage: image)
+        frame = photo
+        pack.observe(photo, items: results, live: live)
         items = results
         status = results.isEmpty ? "No supported objects detected." : "Detected \(results.count) objects."
     }
@@ -106,6 +109,7 @@ struct Home: View {
     @State private var photo: PhotosPickerItem?
     @State private var running = false
     @State private var comparing = false
+    @State private var packing = false
     @State private var liveFallback = false
     var body: some View {
         VStack(spacing: 16) {
@@ -126,16 +130,22 @@ struct Home: View {
                     }
                 }
             }
-            Inventory(display: display)
+            Picker("Workflow", selection: $packing) {
+                Text("Identify objects").tag(false)
+                Text("Find & pack up").tag(true)
+            }.pickerStyle(.segmented)
+            if packing { PackPanel(session: display.pack) }
+            else { Inventory(display: display) }
         }.padding(32)
         .sheet(isPresented: $comparing) { Comparison(display: display) }
         .sheet(isPresented: $liveFallback) {
             LiveFallbackScan(display: display) {
                 liveFallback = false
+                display.pack.endInput()
                 display.status = "Stopped."
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .init("TableLensSpaceClosed"))) { _ in running = false }
+        .onReceive(NotificationCenter.default.publisher(for: .init("TableLensSpaceClosed"))) { _ in running = false; display.pack.endInput() }
         .task(id: photo) {
             guard let photo else { return }
             do {
@@ -149,6 +159,7 @@ struct Home: View {
     }
 
     func startLive() {
+        display.pack.endInput()
         display.frame = nil
         display.items = []
         if CameraFrameProvider.isSupported {
@@ -161,6 +172,7 @@ struct Home: View {
 
     func start(_ id: String) {
         running = true
+        display.pack.endInput()
         display.frame = nil; display.items = []; display.status = "Opening…"
         Task {
             switch await open(id: id) {
@@ -386,7 +398,7 @@ struct CameraSpace: View {
                 let small = original.transformed(by:CGAffineTransform(scaleX:scale,y:scale))
                 guard let image = context.createCGImage(small,from:small.extent) else { continue }
                 let items = try await Detector.shared.analyze(image)
-                if !Task.isCancelled { display.show(image,items) }
+                if !Task.isCancelled { display.show(image,items,live: true) }
             }
         } catch { display.status = error.localizedDescription }
     }
